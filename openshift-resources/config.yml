@@ -1,0 +1,73 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: fluentd
+  namespace: ocp-log
+data:
+  fluent.conf: |
+    <source>
+      # fetch all logs
+      @type tail
+      @label @kube_log_source
+      @id    kube_log_source
+      tag kubernetes.*
+      path /var/log/containers/*.log
+      pos_file /fluentd/log/kube-containers-s3.log.pos
+      read_from_head false       
+      <parse>
+        @type none
+      </parse>
+    </source>
+
+    <label @kube_log_source>
+      <filter **>
+        # add kube metadata
+        @type kubernetes_metadata
+      </filter>
+        # match everythings else
+      <match **>
+          @type copy
+          <store>
+          @type s3
+          @id s3_store_team1
+          @log_level info
+          aws_key_id "#{ENV['AWS_KEY_ID']}"
+          aws_sec_key "#{ENV['AWS_SEC_KEY']}"
+          s3_bucket "ocp-logs-fluentd"
+          s3_region "eu-north-1"
+          s3_object_key_format "cluster-dev/#{ENV['NODE_NAME']}/all-log-%{time_slice}-%{index}.%{file_extension}"
+          time_slice_format %Y%m%d%H
+          include_time_key true
+          include_tag_key true
+            <buffer>
+              @type file
+              path /var/log/fluentd-buffers/s3.buffer
+              timekey 3600
+              timekey_use_utc true # use utc
+              chunk_limit_size 512m
+           </buffer>
+           </store>
+
+     <store>
+     @type elasticsearch_dynamic
+      host aws-es-proxy
+      port 9200
+      logstash_format true
+      logstash_prefix cluster-dev-${record['kubernetes']['namespace_name']}
+      reload_connections false
+       <buffer>
+         @type file
+         path /var/log/fluentd-buffers/elasticsearch.system.buffer
+         flush_mode interval
+         retry_type exponential_backoff
+         flush_thread_count 2
+         flush_interval 5s
+         retry_forever
+         retry_max_interval 30
+         chunk_limit_size 2M
+         queue_limit_length 32
+         overflow_action block
+        </buffer>
+     </store>
+    </match>
+    </label>
