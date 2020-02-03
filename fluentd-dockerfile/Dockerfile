@@ -20,6 +20,7 @@ RUN apk update \
  && gem install fluentd -v 1.7.4 \
  && gem install bigdecimal -v 1.3.5 \
  && gem install fluent-plugin-s3 -v 1.2.0 \
+ && gem install fluent-plugin-elasticsearch \
  && gem install fluent-plugin-aws-elasticsearch-service -v 2.1.0 \
  && gem install fluent-plugin-kubernetes_metadata_filter -v 2.4.0 \
  && gem install fluent-plugin-multi-format-parser -v 1.0.0 \
